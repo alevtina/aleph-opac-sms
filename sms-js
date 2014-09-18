@@ -1,0 +1,253 @@
+<!-- filename: sms-js -->
+<script>
+// ------
+// sms.js: Scrapes OPAC screen for item title & holdings info, creates & displays a form that lets the user
+//         choose his/her preferred item location & asks for his/her phone # number and celluluar carrier.
+//         The actual "texting" functionality is handled by an external Perl script, which accepts title,
+//         item info, cell #, and cell carrier as parameters and sends an email (number@carrier) to the user
+//         (which is received as a text message) with the requested information.
+// ------
+// Originally created for Innovative Interface OPAC by Adam Brin (Bryn Mawr College) in ~2005-2008
+// Adapted for Ex Libris Aleph OPAC by Alevtina Verbovetskaya (City University of New York) in 2013
+// ------
+ 
+// set this to be the URL for the SMS Perl script
+var smsurl = "[ils-server-url]/[path-to-cgi-bin]/sms.pl?";
+ 
+// This function shows the SMS layer and creates the form
+function showSMS( )
+{
+    try
+    {
+        // enable this to show debugging alerts
+        var debug = 0;
+        try
+        {
+            var bib = document.getElementById( "bib-detail" );
+            if( debug > 0 ) alert( "bib: " + bib );
+            // we have to iterate through every TR to get to the title
+            var tr = bib.getElementsByTagName( "tr" );
+            if( debug > 0 ) alert( "tr: " + tr );
+            // for every TR in the document
+            for( i = 0; i < tr.length; i++ )
+            {
+                // get all of the columns
+                var td = tr[i].getElementsByTagName( "td" );
+                // because of the way our OPAC is set up, it's impossible to know exactly
+                // which row in the bib-detail table contains the title but we can capture
+                // most titles because they end with " / <br>"
+                for( j = 0; j < td.length; j++ )
+                {
+                    var str = td[j].innerHTML;
+                    var br = /\/ <br>/i;
+                    var slash = str.search( br );
+                    if( slash !== -1 ) {
+                        var title = str.substring( 0, slash-1 );
+                        // CUNY's e-books have "[electronic resource]" in title
+                        // and we're removing it here so as not to waste characters
+                        // while we remove non-alphanumeric characters (since it
+                        // will be passed as parameter in URL)
+                        title = title.replace( " ", " " ).replace( "[electronic resource]", "" ).replace( /[^a-zA-Z 0-9-':;\/]/g, "" );
+                        unescape( title );
+                    }
+                    if( debug > 0 ) alert( "tr[" + i + "]td[" + j + "] " + str );
+                }
+            }
+            if( !title )
+            {
+                var sms = document.getElementById( "sms" );
+                var out = "<h3>Feature Unavailable</h3>";
+                out += "<p>That feature is currently unavailable for this item. We apologize for the inconvenience.</p>";
+                out += "<p style='text-align:center;'><input type='button' name='clearmessage' onClick='clearSMS();return false;' value='Close Window' /></p>";
+                var smshtml = sms.innerHTML.search( "Feature Unavailable" );
+                // some hackery to accommodate everyone's favorite browser (IE, of course!)
+                // because it doesn't like adding HTML via the innerHTML property
+                if( smshtml == -1 )
+                {
+                    var span = document.createElement( "span" );
+                    span.innerHTML = out;
+                    sms.appendChild( span );
+                    // now we make the div (currently hidden) visible
+                    sms.style.visibility = "visible";
+                    sms.style.display = "block";
+                }
+            }
+        } catch( e ) {}
+        if( debug > 0 ) alert( "Title: " + title );
+        // this is the DIV that we're going to put the text into
+        var sms = document.getElementById( "sms" );
+        if( debug > 0 ) alert( "sms: " + sms.innerHTML );
+        // we'll load the 'out' variable with all the html and then put it into the sms div
+        var out = "<h3>Send Item Info to Your Mobile Phone</h3>";
+        out += "<form name='sms_form' method=post>";
+        out += "<p><strong>Title</strong>:<br />" + title + "</p>";
+        // dump the title into a hidden form variable
+        out += "<input type=hidden name=title value=\'" + title + "\' />";
+        out += "<p><strong>Choose an item near you:</strong><br />";
+        // get the ITEM table
+        var itms = document.getElementById( "bib-items" );
+        if( debug > 0 ) alert( "itms: " + itms );
+        // get each row
+        var tr = itms.getElementsByTagName( "tr" );
+        // setting i = 1 skips the first (heading) row
+        for( i = 1; i < tr.length; i++ )
+        {
+            // get each cell
+            var td = tr[i].getElementsByTagName( "td" );
+            if( debug > 0 ) alert( "td.length: " + td.length ); 
+            // if there are 8 cells (like our ITEM table)
+            if( td.length == 8 )
+            {
+                // get the library (remove tags & non-alphanumeric chars)
+                var college = td[1].innerHTML.replace( /<([^>]+)>/ig, "" ).replace( /[^a-zA-Z 0-9]/g, "");
+                // get the collection (remove tags)
+                var collection = td[2].innerHTML.replace( /<([^>]+)>/ig, "" );
+                // get the call number (remove tags & convert )
+                var callnumber = td[3].innerHTML.replace( /<([^>]+)>/ig, "" ).replace( " ", " " );
+                unescape( college );
+                unescape( collection );
+                unescape( callnumber );
+                var chck = "";
+                // if we're on the first row, check it
+                if( i == 1 ) chck = " checked ";
+                out += "<input " + chck + " type=radio name=lib value='" + college + "\n" + collection + "\n" + callnumber + "' />" + college + " " + collection + " (" + callnumber + ")<br />";   
+                if( debug > 0 )
+                {
+                    alert( "College: " + college );
+                    alert( "Collection: " + collection );
+                    alert( "Call #: " + callnumber );
+                }
+            }
+        }
+        out += "</p>";
+        // input for the phone #
+        out += "<p><strong>Enter your mobile phone #</strong>:<br />";
+        out += "<small>e.g., 2127945706 (10 digits, no spaces, no dashes)</small><br />";
+        out += "<input name=phone type=text style='width:175px;' /></p>";
+        // pull-down for each of phone carriers the values will be parsed by the perl script
+        out += "<p><strong>Select your mobile carrier:</strong><br />";
+        out += "<select name=provider style='width:175px;'>";
+        out += "<option> </option>";        
+        out += "<option value=ATT>AT&T/Cingular</option>";
+        out += "<option value=Boost>Boost Mobile</option>";
+        out += "<option value=Metro>Metro PCS</option>";
+        out += "<option value=Nextel>Nextel</option>";
+        out += "<option value=Sprint>Sprint PCS</option>";
+        out += "<option value=T-Mobile>T-Mobile</option>";
+        out += "<option value=Verizon>Verizon</option>";
+        out += "<option value=Virgin>Virgin Mobile USA</option>";
+        out += "</select></p>";
+        out += "<p><strong>NOTE</strong>: <em>Carrier charges may apply.</em></p>";
+        // add buttons at bottom.  note the return false which stops the form from actually doing anything
+        out += "<p style='text-align:center;'><input type='button' name='sendmessage' onClick='sendSMS( this.form );return false;' value='Send Message' /> <input type='button' name='clearmessage' onClick='clearSMS();return false;' value='Close Window' /></p>";
+        out += "</form>";
+        // check to see that sms div doesn't already exist on page or else it'll keep appending
+        // content to the end of the div as long as the user keeps clicking "Send Info via Text"
+        var smshtml = sms.innerHTML.search( "Send Item Info to Your Mobile Phone" );
+        // some hackery to accommodate everyone's favorite browser (IE, of course!)
+        if( title && smshtml == -1 )
+        {
+            // because it doesn't like adding HTML via the innerHTML property
+            var span = document.createElement( "span" );
+            span.innerHTML = out;
+            sms.appendChild( span );
+            // now we make the div visible
+            sms.style.visibility = "visible";
+            sms.style.display = "block";
+        }
+        if( debug > 0 ) alert( "sms: " + sms.innerHTML );
+        var smsbutton = document.getElementById( "smslink" );
+        // some fancy positioning
+        findPos( smsbutton, sms, 150, -30 );
+    } catch( e )
+    {
+        // doesn't work?  hide the SMS button
+        document.getElementById( "smslink" ).style.visibility = "hidden";
+    }
+return false;
+}
+ 
+function sendSMS( frm )
+{
+    // enable this to show debugging alerts
+    var debug = 0;
+    // get the phone #
+    var phone = frm.phone.value;
+    // ... & remove all non-digit characters
+    phone = phone.replace( /[^\d]/ig, "" );
+    var prvdr = frm.provider.options[frm.provider.selectedIndex].value;
+    // if 10 chars & provider selected, we're good
+    if( ( phone.length == 10 ) && ( prvdr !== "" ) )
+    {
+        // start creating the Perl script URL
+        var url = smsurl;
+        // truncate title & html escape field
+        if( frm.title.value.length > 75 )
+        {
+            url += "title=" + encodeURIComponent( frm.title.value ).substring( 0, 74 ) + "[...]";
+        } else
+        {
+            url += "title=" + encodeURIComponent( frm.title.value );
+        }
+        // html escape phone #
+        url += "&number=" + encodeURIComponent( frm.phone.value );
+        // html escape phone provider
+        url += "&provider=" + encodeURIComponent( frm.provider.options[frm.provider.selectedIndex].value );
+        // for each item, get the checked one 
+        for( i = 0; i < frm.lib.length; i++ )
+        {
+            // if checked, add it to the URL
+            if( frm.lib[i].checked == true )
+            {
+                url += "&item=" + encodeURIComponent( frm.lib[i].value );
+            }
+        }
+        // if just one -- should not come to this
+        if( frm.lib.length == undefined )
+        {
+            url += "&item=" + encodeURIComponent( frm.lib.value );      
+        }
+        // now we create a <SCRIPT> tag in the <HEAD> to get the response
+        var head = document.getElementsByTagName( "head" )[0];
+        var script = document.createElement( "script" );
+        script.setAttribute( "type", "text/javascript" );
+        // the script is actually the PERL script 
+        script.setAttribute( "src", url );
+        // append the script
+        head.appendChild( script );
+        if( debug > 0 ) alert( "Script URL: " + url );
+    } else
+    {
+        // invalid phone #, alert user to fix input
+        alert( "Please make sure you've entered a valid phone number and chosen a carrier." );
+    }
+}
+ 
+// clear/hide the SMS DIV
+function clearSMS( )
+{
+    var sms = document.getElementById( "sms" );
+    sms.style.visibility = "hidden";
+    sms.style.display = "none";
+    sms.innerHTML = "";
+}
+ 
+// get the position of an item, good for putting the SMS form in a useful place
+function findPos( obj1, obj2, loffset, toffset )
+{
+    var curleft = curtop = 0;
+    if( obj1.offsetParent )
+    {
+        curleft = obj1.offsetLeft;
+        curtop = obj1.offsetTop;
+        while( obj1 = obj1.offsetParent )
+        {
+            curleft += obj1.offsetLeft;
+            curtop += obj1.offsetTop;
+        }
+    }
+    obj2.style.left = curleft + loffset;
+    obj2.style.top = curtop + toffset;
+}
+</script>
+<!-- end file: sms-js -->
