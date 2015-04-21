@@ -1,4 +1,5 @@
-#!/aleph/aleph/a18_1/product/bin/perl
+# Change below to your Perl installation
+#!/exlibris/aleph/a21_1/product/bin/perl
 print "Content-type:text/html\n\n";
 use Net::SMTP;
 use strict;
