@@ -1,7 +1,12 @@
 Texting from the Aleph OPAC
 ===========================
 
-This feature allows patrons to send holdings data about items to their mobile phones. Users must simply navigate to an item's holding page and click on the button titled "Send Info via Text." They will then need to enter their phone number and cellular carrier to receive a text message with the title, location, and call number of the selected item. This is done WITHOUT a dedicated SMS server and relies, instead, on the Net::SMTP Perl module to send the messages. (You will need to know your institution's mail server.)
+This feature allows patrons to send holdings data about items to their mobile phones. Users must simply navigate to an item's holding page and click on the button titled "Send Info via Text." They will then need to enter their phone number and cellular carrier to receive a text message with the title, location, and call number of the selected item. This is done **without** a dedicated SMS server and relies, instead, on the Net::SMTP Perl module to send the messages. (You will need to know your institution's mail server.)
+
+Compatibility
+-------------
+
+This code was created for Aleph v18. It has also proven to work in Aleph v21.
 
 Live Demonstration
 ------------------
@@ -11,7 +16,7 @@ Live Demonstration
 Installation Instructions
 -------------------------
 
-* Add new CSS class ("sms") to style the popup box
+**Add new CSS class ("sms") to style the popup box**
 
 $ wf
 
@@ -32,7 +37,7 @@ $ vi exlibris-xxx01.css
         background: #EFEFCF;
     }
 
-* Add table ID ("bib-items") so JavaScript will find table with holding info
+**Add table ID ("bib-items") so JavaScript will find table with holding info**
 
 $ wf
 
@@ -42,7 +47,7 @@ $ vi item-global-body-head
     <table ... id="bib-items">
     ...
 
-* Add JavaScript to hide "Send Info via Text" button if there is no item data available
+**Add JavaScript to hide "Send Info via Text" button if there is no item data available**
 
 $ wf
 
@@ -63,7 +68,7 @@ $ vi item-global-body-tail
     </script>
     ...
 
-* Add "Send Info via Text" button (span ID "smslink") and create new span tag (ID "sms") to display form
+**Add "Send Info via Text" button (span ID "smslink") and create new span tag (ID "sms") to display form**
 
 $ wf
 
@@ -77,7 +82,7 @@ $ vi item-global-dropdown-menus-a
     <span id="sms" style="visibility:hidden;display:none;"></span>
     ...
 
-* Include sms-js file in the holdings page header and add table ID ("bib-detail") for JavaScript
+**Include sms-js file in the holdings page header and add table ID ("bib-detail") for JavaScript**
 
 $ wf
 
@@ -89,11 +94,13 @@ $ vi item-global-head-1
     <table id="bib-detail">
     ...
 
-* In cgi-bin, write Perl script ("sms.pl"), remembering to chmod 0755
+**In cgi-bin, write Perl script ("sms.pl"), remembering to chmod 0755**
 
-* In web directory, write JavaScript ("sms-js") file
+**In web directory, write JavaScript ("sms-js") file**
 
-* If your library is like CUNY, item titles on holdings pages will need to be somehow identified as titles. We added a trailing slash to the titles:
+**If your library is like CUNY, item titles on holdings pages will need to be somehow identified as titles**
+
+We added a trailing slash to the titles:
 
 $ cd $xxx01_dev/xxx01/tab
 
@@ -106,7 +113,7 @@ $ vi edit_paragraph.eng
     013 260## W ##^       .
     013 300## D ##^       .
 
-* If using above: Include small JavaScript in footer to remove slash (after SMS script has had a chance to run)
+**If using above: Include small JavaScript in footer to remove slash (after SMS script has had a chance to run)**
 
 $ wf
 
@@ -129,3 +136,8 @@ $ vi item-global-tail-1
         }
     }
     </script>
+
+Acknowledgements
+----------------
+
+This code was originally created for Innovative Interface OPAC by Adam Brin (Bryn Mawr College) in ~2005-2008.
